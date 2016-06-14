@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+  <head>
+    <title><%=title%></title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background-color: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      form button { width: 9%; background-color: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background-color: #eee; }
+      .writeMessage {border: 1px solid #ccc;color:white;padding:1px;border-radius: 3px;}
+      .me {text-align: right!important;}
+      .someone {background-color:yellow!important}
+      .added {background-color:green!important}
+    </style>
+  </head>
+  <body>
+    <ul id="messages"></ul>
+    <form action="">
+      <fieldset class="writeMessage">
+        <legend id="username"></legend>
+        <select id="someone"></select>
+        <input id="m" autocomplete="off" /><button>Send</button>
+      </fieldset>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.0.0.min.js"></script>
+    <script>
+      var socket = io();
+      var username = "Admin";
+      if(username === ""){
+        username = prompt("請輸入暱稱","Guest");
+        $("#username").text(username);
+        socket.emit("add user",username);
+      }
+
+      //send
+      $('form').submit(function(){
+        var payload = {
+          'username':username,
+          'message':$('#m').val()
+        };
+        var someone = $("#someone").val();
+        if(someone.length > 0){
+          payload['someone'] = someone;
+          socket.emit('say to someone',JSON.stringify(payload));
+        } else {
+          socket.emit('chat message',JSON.stringify(payload));
+        }
+        $('#m').val('');
+        return false;
+      });
+
+      //recieve
+      var $messages = $('#messages');
+      socket.on('add user', function(data){
+        var payload = JSON.parse(data);
+        var messageTime = new Date(payload.time).toLocaleString();
+        var message = $('<li>').html(messageTime + ':' + payload.username + '<br>' + payload.message);
+        message.addClass('added');
+        $messages.append(message);
+      });
+      socket.on('chat message', function(data){
+        var payload = JSON.parse(data);
+        var messageTime = new Date(payload.time).toLocaleString();
+        var message = $('<li>').html(messageTime + ':' + payload.username + '<br>' + payload.message);
+        if(payload.username === username){
+          message.addClass('me');
+        }
+        $messages.append(message);
+      });
+      socket.on('say to someone', function(data){
+        var payload = JSON.parse(data);
+        var messageTime = new Date(payload.time).toLocaleString();
+        var someone = payload.someone;
+
+        var message = $('<li>').html(messageTime + ':' + payload.username + ' say to ' + someone + '<br>' + payload.message);
+        message.addClass('someone');
+        $messages.append(message);
+      });
+      
+      
+      $(function(){
+        $.get('/socketNames',function(names){
+          if(names){
+            var $someone = $('#someone').empty();
+            for(var i=0;i<names.length;i++){
+              $('<option>').text(names[i]).appendTo($someone);
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
